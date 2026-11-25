@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Настройки{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="breadcrumb-label">Администрирование</p><h1>Настройки</h1></div></div>
+<section class="panel form-panel"><h2>Рабочее пространство</h2><dl class="detail-fields">
+<div><dt>Организация</dt><dd>ВАИМ</dd></div><div><dt>Версия приложения</dt><dd>0.1.1</dd></div>
+<div><dt>Часовой пояс</dt><dd>Москва (Europe/Moscow)</dd></div><div><dt>Хранилище документов</dt><dd>{{ 'Supabase Storage' if config.SUPABASE_URL else 'Локальное закрытое хранилище' }}</dd></div>
+</dl></section>
+{% endblock %}

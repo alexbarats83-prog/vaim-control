@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Главная{% endblock %} · VAIM Control</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body class="{{ 'workspace' if user else 'guest' }}">
+{% macro nav(endpoint, label, icon, view=None) %}
+  {% set selected = request.endpoint == endpoint and (view is none or request.args.get('view', 'all') == view) %}
+  <a class="nav-link {{ 'selected' if selected }}" {% if selected %}aria-current="page"{% endif %} href="{{ url_for(endpoint, view=view) if view else url_for(endpoint) }}"><span class="nav-icon" aria-hidden="true">{{ icon }}</span>{{ label }}</a>
+{% endmacro %}
+{% if user %}
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="{{ url_for('dashboard.home') }}"><span class="brand-icon">V</span><span>VAIM <strong>Control</strong></span></a>
+    <nav aria-label="Главное меню">
+      <p class="nav-label">Рабочее пространство</p>
+      {{ nav('dashboard.home', 'Главная', '⌂') }}
+      {{ nav('dashboard.tasks', 'Мои задачи', '☷') }}
+      {% if can('create') %}{{ nav('invoices.edit', 'Создать счёт', '⊕') }}{% endif %}
+      <p class="nav-label">Счета и платежи</p>
+      {{ nav('invoices.listing', 'Реестр счетов', '▤', 'all') }}
+      {{ nav('invoices.listing', 'На согласовании', '◷', 'review') }}
+      {% if can('pay') or can('view_all') %}{{ nav('invoices.listing', 'На оплату', '₽', 'pay') }}{% endif %}
+      {{ nav('invoices.listing', 'Оплаченные', '✓', 'paid') }}
+      {% if can('directory') %}{{ nav('admin.counterparties', 'Контрагенты', '▥') }}{% endif %}
+      {% if can('reports') %}{{ nav('dashboard.reports', 'Отчёты', '◫') }}{% endif %}
+      {% if can('manage') or can('audit') %}<p class="nav-label">Администрирование</p>{% endif %}
+      {% if can('manage') %}
+        {{ nav('admin.employees', 'Сотрудники', '♙') }}
+        {{ nav('admin.roles', 'Роли и права', '◇') }}
+        {{ nav('admin.routes', 'Маршруты согласования', '⇄') }}
+        {{ nav('admin.settings', 'Настройки', '⚙︎') }}
+      {% endif %}
+      {% if can('audit') %}{{ nav('admin.audit', 'Журнал действий', '≡') }}{% endif %}
+    </nav>
+  </aside>
+{% endif %}
+<div class="main-shell">
+  {% if user %}
+  <header class="topbar">
+    <div class="top-left">
+      <button type="button" class="mobile-toggle btn btn-sm btn-outline-secondary" aria-controls="sidebar" aria-expanded="false">☰ <span>Меню</span></button>
+      <form role="search" action="{{ url_for('invoices.listing') }}" class="top-search">
+        <span aria-hidden="true">⌕</span><input type="search" name="q" aria-label="Поиск по счетам" placeholder="Поиск по счетам…" maxlength="80">
+      </form>
+    </div>
+    <div class="account"><span class="avatar" aria-hidden="true">{{ user.name[:1] | upper }}</span><div><strong>{{ user.name }}</strong><small>{{ roles[user.role_ids | sort | first][0] if user.roles else 'Нет назначенных ролей' }}</small></div>
+      <form action="{{ url_for('auth.logout') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="account-exit" type="submit">Выйти</button>
+      </form>
+    </div>
+  </header>
+  {% endif %}
+  <main id="main-content">
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

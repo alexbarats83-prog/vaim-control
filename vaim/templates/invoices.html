@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import invoice_table with context %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="breadcrumb-label">Счета и платежи</p><h1>{{ title }}</h1><p class="muted">Найдено счетов: {{ count }}</p></div>
+{% if can('create') %}<a class="btn btn-primary" href="{{ url_for('invoices.edit') }}">＋ Создать счёт</a>{% endif %}</div>
+<section class="panel section">
+  <form method="get" class="filters">
+    <input type="hidden" name="view" value="{{ view }}">
+    <label>Поиск<input name="q" class="form-control" value="{{ request.args.get('q', '') }}" placeholder="Номер счёта или контрагент" maxlength="80"></label>
+    {% if view == 'all' %}<label>Статус<select class="form-select" name="status"><option value="">Все статусы</option>{% for key, label in statuses.items() %}<option value="{{ key }}" {{ 'selected' if request.args.get('status') == key }}>{{ label }}</option>{% endfor %}</select></label>{% endif %}
+    <button type="submit" class="btn btn-outline-secondary">Найти</button>
+  </form>
+  {{ invoice_table(items) }}
+  {% if count > 25 %}<div class="pagination-row">
+    {% if page > 1 %}<a href="{{ url_for('invoices.listing', view=view, page=page-1, q=request.args.get('q'), status=request.args.get('status')) }}">← Назад</a>{% endif %}
+    <span>Страница {{ page }}</span>
+    {% if page * 25 < count %}<a href="{{ url_for('invoices.listing', view=view, page=page+1, q=request.args.get('q'), status=request.args.get('status')) }}">Далее →</a>{% endif %}
+  </div>{% endif %}
+</section>
+{% endblock %}

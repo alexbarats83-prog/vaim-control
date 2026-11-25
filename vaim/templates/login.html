@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import csrf %}
+{% block title %}Вход{% endblock %}
+{% block content %}
+<section class="login-card panel">
+  <div class="brand login-brand"><span class="brand-icon">V</span><span>VAIM <strong>Control</strong></span></div>
+  <h1>Вход в систему</h1>
+  <p class="muted">Войдите, чтобы работать со счетами и платежами.</p>
+  <form method="post" class="field-grid">
+    {{ csrf() }}
+    <label>Рабочий email<input type="email" class="form-control" name="email" autocomplete="username" maxlength="254" required value="{{ request.form.get('email', '') }}"></label>
+    <label>Пароль<input type="password" class="form-control" name="password" autocomplete="current-password" maxlength="128" required></label>
+    <button type="submit" class="btn btn-primary">Войти</button>
+  </form>
+</section>
+{% endblock %}

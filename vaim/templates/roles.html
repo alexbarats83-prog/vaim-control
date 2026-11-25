@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}Роли и права{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="breadcrumb-label">Администрирование</p><h1>Роли и права</h1><p class="muted">Права сотрудника складываются из назначенных ему ролей.</p></div></div>
+<section class="panel section"><div class="table-responsive"><table class="table records"><thead><tr><th>Роль</th><th>Права</th></tr></thead><tbody>
+{% for role in roles.values() %}<tr><th scope="row">{{ role[0] }}</th><td>{% for permission in role[1] | sort %}<span class="status status-draft">{{ permissions[permission] }}</span> {% endfor %}</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

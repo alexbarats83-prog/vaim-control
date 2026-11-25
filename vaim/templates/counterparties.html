@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import csrf %}
+{% block title %}Контрагенты{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="breadcrumb-label">Счета и платежи</p><h1>Контрагенты</h1></div></div>
+<div class="detail-grid"><section class="panel section"><header class="section-heading"><h2>Справочник</h2></header>
+{% if items %}<div class="table-responsive"><table class="table records"><thead><tr><th>Название</th><th>ИНН</th><th>КПП</th></tr></thead><tbody>{% for item in items %}<tr><th scope="row">{{ item.name }}</th><td>{{ item.inn }}</td><td>{{ item.kpp or '—' }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty"><span aria-hidden="true">▥</span><strong>Контрагентов пока нет</strong></div>{% endif %}
+</section><section class="panel form-panel"><h2>Добавить контрагента</h2>
+<form method="post" class="field-grid">{{ csrf() }}
+<label>Название<input class="form-control" name="name" value="{{ request.form.get('name', '') }}" maxlength="160" required></label>
+<label>ИНН<input class="form-control" name="inn" value="{{ request.form.get('inn', '') }}" inputmode="numeric" maxlength="12" required></label>
+<label>КПП<input class="form-control" name="kpp" value="{{ request.form.get('kpp', '') }}" inputmode="numeric" maxlength="9"></label>
+<div><button class="btn btn-primary">Добавить</button></div></form></section></div>
+{% endblock %}

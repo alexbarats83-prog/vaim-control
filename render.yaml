@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: vaim-control
+    runtime: python
+    plan: free
+    autoDeployTrigger: "off"
+    buildCommand: python -m pip install -r requirements.txt
+    startCommand: gunicorn -c gunicorn.conf.py wsgi:app
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.14"
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: VAIM_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: vaim-private
