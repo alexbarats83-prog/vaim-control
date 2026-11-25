@@ -17,11 +17,11 @@
    postgresql+psycopg://postgres.PROJECT_REF:DATABASE_PASSWORD@POOLER_HOST:5432/postgres?sslmode=require
    ```
    Замените только значения из панели. Если пароль содержит символы URL-разметки, например `@`, `:`, `/`, `#` или `%`, процентно закодируйте его в URI.
-5. В **Storage → New bucket** задайте имя `vaim-private`, оставьте **Public bucket** выключенным, установите предел **10 MB**. Если панель позволяет перечислить MIME-типы, разрешите `application/pdf`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `image/jpeg` и `image/png`.
+5. В **Storage** выберите созданный bucket `documents`. Для нового проекта создайте его через **New bucket**, оставьте **Public bucket** выключенным, установите предел **10 MB**. Если панель позволяет перечислить MIME-типы, разрешите `application/pdf`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `image/jpeg` и `image/png`.
 6. В **Storage → Policies** оставьте для этого bucket доступ клиентских ролей `anon` и `authenticated` закрытым для SELECT, INSERT, UPDATE и DELETE. Для нового bucket с RLS приложения отдельные разрешающие политики не нужны. Перепроверьте, что общие политики на `storage.objects` не охватывают этот bucket. Пользователи входят в VAIM, а сервер повторно проверяет права на счёт и сам обращается к Storage. Серверный ключ обходит RLS, поэтому держите его только в менеджере секретов и окружении сервера.
-7. В **Project Settings → API Keys → Legacy API keys** скопируйте серверный JWT `service_role`. Текущий адаптер отправляет именно этот ключ в `Authorization` и `apikey`. Получите URL проекта из **Connect** или настроек API. Обычно он выглядит как `https://PROJECT_REF.supabase.co`.
+7. В **Project Settings → API Keys → Publishable and secret API keys** создайте отдельный ключ приложения в разделе **Secret keys** и сохраните его в `SUPABASE_SECRET_KEY`. Ключ начинается с `sb_secret_` и передаётся сервером только в заголовке `apikey`. Для необязательной проверки роли `anon` используйте ключ `sb_publishable_` из раздела **Publishable key**. Получите URL проекта из **Connect** или настроек API. Обычно он выглядит как `https://PROJECT_REF.supabase.co`.
 
-Официальные справки: [подключение PostgreSQL](https://supabase.com/docs/guides/database/connecting-to-postgres), [приватные bucket](https://supabase.com/docs/guides/storage/buckets/fundamentals), [политики Storage](https://supabase.com/docs/guides/storage/security/access-control).
+Официальные справки: [ключи Supabase](https://supabase.com/docs/guides/getting-started/api-keys), [подключение PostgreSQL](https://supabase.com/docs/guides/database/connecting-to-postgres), [приватные bucket](https://supabase.com/docs/guides/storage/buckets/fundamentals), [политики Storage](https://supabase.com/docs/guides/storage/security/access-control).
 
 ## 2. Первичная подготовка с компьютера
 
@@ -34,9 +34,9 @@
    | `VAIM_ENV` | `production` для облачных PostgreSQL и Storage. |
    | `DATABASE_URL` | Строка подключения из предыдущего раздела с TLS. |
    | `SUPABASE_URL` | HTTPS URL проекта. |
-   | `SUPABASE_SERVICE_KEY` | Серверный JWT `service_role`. |
-   | `SUPABASE_ANON_KEY` | Необязательный legacy JWT `anon` из раздела API Keys, только для локальной команды `verify-storage`. Позволяет проверить правила роли `anon` дополнительно к запросам без ключа. |
-   | `SUPABASE_BUCKET` | `vaim-private`. |
+   | `SUPABASE_SECRET_KEY` | Серверный ключ `sb_secret_`, только в локальном окружении или секретах Render. |
+   | `SUPABASE_PUBLISHABLE_KEY` | Необязательный ключ `sb_publishable_` для локальной команды `verify-storage`. Проверяет роль `anon` отдельно от запросов без ключа. |
+   | `SUPABASE_BUCKET` | `documents`. |
    | `SECRET_KEY` | Случайный ключ подписи сессий из 64 hex-символов. |
    | `TRUST_PROXY_HOPS` | `0` локально. Установите `1` на Render за его HTTPS-прокси. |
    | `WEB_CONCURRENCY` | `1` на Render Free. |
@@ -61,12 +61,18 @@
 
 Free подходит для пилота и демонстрации. Сервис засыпает после простоя и использует временную файловую систему. PostgreSQL и вложения находятся в Supabase. Для реальных финансовых документов нужны эксплуатационные гарантии, резервное копирование базы и Storage, проверка восстановления и антивирусная обработка по политике компании. [Ограничения Render Free](https://render.com/docs/free) · [Развёртывания и Pre-Deploy Command](https://render.com/docs/deploys).
 
+## Обновление с 0.1.1
+
+Перед запуском новой версии добавьте `SUPABASE_SECRET_KEY` в окружение Render и локальный `.env`, замените `SUPABASE_ANON_KEY` на `SUPABASE_PUBLISHABLE_KEY`, если используете проверку роли `anon`. После проверки новой версии удалите старую переменную `SUPABASE_SERVICE_KEY`. Существующие значения в Render проверьте вручную даже при использовании Blueprint.
+
+Установите `SUPABASE_BUCKET=documents`. Если прежняя установка записывала файлы в другой bucket, до переключения скопируйте объекты с сохранением имён и проверьте скачивание. Пока перенос не завершён, оставьте прежний bucket в настройках. Метаданные VAIM хранят ключ объекта, а имя bucket берут из окружения.
+
 ## Docker
 
 ```bash
-docker build -t vaim-control:0.1.1 .
-docker run --rm --env-file /secure/path/vaim.env vaim-control:0.1.1 flask --app vaim db upgrade
-docker run --rm --env-file /secure/path/vaim.env -p 8000:8000 vaim-control:0.1.1
+docker build -t vaim-control:0.1.2 .
+docker run --rm --env-file /secure/path/vaim.env vaim-control:0.1.2 flask --app vaim db upgrade
+docker run --rm --env-file /secure/path/vaim.env -p 8000:8000 vaim-control:0.1.2
 ```
 
-В промышленном режиме поставьте контейнер за HTTPS-прокси. Задавайте `TRUST_PROXY_HOPS=1` только когда перед Gunicorn ровно один доверенный прокси, который дополняет заголовки адреса и HTTPS. Если сборка идёт через корпоративный TLS-прокси, передайте доверенную цепочку через BuildKit: `docker build --secret id=pip_ca,src=/path/to/ca-bundle.crt -t vaim-control:0.1.1 .`.
+В промышленном режиме поставьте контейнер за HTTPS-прокси. Задавайте `TRUST_PROXY_HOPS=1` только когда перед Gunicorn ровно один доверенный прокси, который дополняет заголовки адреса и HTTPS. Если сборка идёт через корпоративный TLS-прокси, передайте доверенную цепочку через BuildKit: `docker build --secret id=pip_ca,src=/path/to/ca-bundle.crt -t vaim-control:0.1.2 .`.

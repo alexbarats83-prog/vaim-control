@@ -146,18 +146,25 @@ def bucket_path():
     return quote(current_app.config["SUPABASE_BUCKET"], safe="")
 
 
-def object_path(key):
+def object_path(key, *, authenticated=False):
     if not re.fullmatch(r"[0-9a-f]{32}", key):
         raise StorageError("Invalid private object key")
-    return f"object/{bucket_path()}/{key}"
+    prefix = "object/authenticated" if authenticated else "object"
+    return f"{prefix}/{bucket_path()}/{key}"
 
 
-def cloud_request(method, path, **kwargs):
-    key = current_app.config["SUPABASE_SERVICE_KEY"]
-    headers = {"Authorization": f"Bearer {key}", "apikey": key}
-    headers.update(kwargs.pop("headers", {}))
+def cloud_request(method, path, *, document=None):
+    key = current_app.config["SUPABASE_SECRET_KEY"]
+    if not key:
+        raise StorageError("Укажите SUPABASE_SECRET_KEY.")
+    headers = {"apikey": key}
+    if document is not None:
+        headers.update({"Content-Type": document.media, "x-upsert": "false"})
     try:
-        response = httpx.request(method, cloud_url(path), headers=headers, timeout=15, **kwargs)
+        response = httpx.request(
+            method, cloud_url(path), headers=headers, timeout=15, follow_redirects=False,
+            content=document.data if document is not None else None,
+        )
         response.raise_for_status()
         return response
     except httpx.HTTPError as exc:
@@ -178,8 +185,7 @@ def require_private_bucket():
 def put(document):
     if current_app.config["SUPABASE_URL"]:
         require_private_bucket()
-        cloud_request("POST", object_path(document.key), content=document.data,
-                      headers={"Content-Type": document.media, "x-upsert": "false"})
+        cloud_request("POST", object_path(document.key), document=document)
     else:
         object_path(document.key)
         path = Path(current_app.config["UPLOAD_DIRECTORY"])
@@ -192,10 +198,11 @@ def put(document):
 
 
 def get(key):
-    path = object_path(key)
     if current_app.config["SUPABASE_URL"]:
+        path = object_path(key, authenticated=True)
         require_private_bucket()
         return cloud_request("GET", path).content
+    object_path(key)
     try:
         return (Path(current_app.config["UPLOAD_DIRECTORY"]) / key).read_bytes()
     except OSError as exc:
@@ -216,15 +223,13 @@ def remove(key):
 def check_anonymous_access(key):
     path = object_path(key)
     roles = [{}]
-    anon_key = current_app.config["SUPABASE_ANON_KEY"]
-    if anon_key:
-        if anon_key == current_app.config["SUPABASE_SERVICE_KEY"]:
-            raise StorageError("SUPABASE_ANON_KEY должен принадлежать роли anon.")
-        roles.append({"apikey": anon_key, "Authorization": f"Bearer {anon_key}"})
-    for endpoint in (path, f"object/public/{bucket_path()}/{key}"):
+    publishable_key = current_app.config["SUPABASE_PUBLISHABLE_KEY"]
+    if publishable_key:
+        roles.append({"apikey": publishable_key})
+    for endpoint in (path, object_path(key, authenticated=True), f"object/public/{bucket_path()}/{key}"):
         for headers in roles:
             try:
-                response = httpx.request("GET", cloud_url(endpoint), headers=headers, timeout=15)
+                response = httpx.request("GET", cloud_url(endpoint), headers=headers, timeout=15, follow_redirects=False)
             except httpx.HTTPError:
                 raise StorageError("Не удалось проверить анонимный доступ.") from None
             if response.status_code not in {400, 401, 403, 404}:
@@ -233,8 +238,8 @@ def check_anonymous_access(key):
 
 def verify_cloud_storage():
     """Test an isolated object and remove it even if a later check fails."""
-    if not current_app.config["SUPABASE_URL"] or not current_app.config["SUPABASE_SERVICE_KEY"]:
-        raise StorageError("Укажите SUPABASE_URL и SUPABASE_SERVICE_KEY.")
+    if not current_app.config["SUPABASE_URL"] or not current_app.config["SUPABASE_SECRET_KEY"]:
+        raise StorageError("Укажите SUPABASE_URL и SUPABASE_SECRET_KEY.")
     require_private_bucket()
     buffer = io.BytesIO()
     Image.new("RGB", (2, 2), "white").save(buffer, format="PNG")

@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import timedelta, timezone
 from pathlib import Path
 from secrets import token_hex
@@ -31,9 +32,9 @@ def create_app(config=None):
         VAIM_ENV=os.getenv("VAIM_ENV", "development"),
         SECRET_KEY=os.getenv("SECRET_KEY"), SQLALCHEMY_DATABASE_URI=url,
         SUPABASE_URL=os.getenv("SUPABASE_URL"),
-        SUPABASE_SERVICE_KEY=os.getenv("SUPABASE_SERVICE_KEY"),
-        SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY"),
-        SUPABASE_BUCKET=os.getenv("SUPABASE_BUCKET", "vaim-private"),
+        SUPABASE_SECRET_KEY=os.getenv("SUPABASE_SECRET_KEY"),
+        SUPABASE_PUBLISHABLE_KEY=os.getenv("SUPABASE_PUBLISHABLE_KEY"),
+        SUPABASE_BUCKET=os.getenv("SUPABASE_BUCKET", "documents"),
         TRUST_PROXY_HOPS=int(os.getenv("TRUST_PROXY_HOPS", "0")),
         LOGIN_WINDOW_SECONDS=900, LOGIN_ACCOUNT_LIMIT=8, LOGIN_IP_LIMIT=30,
         SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
@@ -48,13 +49,20 @@ def create_app(config=None):
         storage_url = urlsplit(app.config["SUPABASE_URL"])
         if storage_url.scheme != "https" or not storage_url.hostname or storage_url.username or storage_url.password or storage_url.query or storage_url.fragment or storage_url.path not in {"", "/"}:
             raise RuntimeError("SUPABASE_URL must be an HTTPS project origin")
+    for variable, prefix in (
+        ("SUPABASE_SECRET_KEY", "sb_secret_"),
+        ("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_"),
+    ):
+        key = app.config[variable]
+        if key and not re.fullmatch(prefix + r"[A-Za-z0-9_-]+", key):
+            raise RuntimeError(f"{variable} must be a Supabase key starting with {prefix}")
     if app.config["VAIM_ENV"] == "production":
         if len(app.config["SECRET_KEY"] or "") < 32:
             raise RuntimeError("Production requires SECRET_KEY with at least 32 characters")
         if not app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgresql+psycopg://"):
             raise RuntimeError("Production requires PostgreSQL via psycopg")
-        if not (app.config["SUPABASE_URL"] or "").startswith("https://") or not app.config["SUPABASE_SERVICE_KEY"]:
-            raise RuntimeError("Production requires HTTPS Supabase Storage and a service key")
+        if not app.config["SUPABASE_URL"] or not app.config["SUPABASE_SECRET_KEY"]:
+            raise RuntimeError("Production requires SUPABASE_URL and SUPABASE_SECRET_KEY")
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
             "pool_pre_ping": True, "hide_parameters": True, "connect_args": {"connect_timeout": 10},
         }
