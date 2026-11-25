@@ -1,4 +1,4 @@
-# VAIM Control v0.1.1
+# VAIM Control v0.1.2
 
 Веб-приложение ВАИМ для согласования счетов и регистрации оплаты. Первый модуль охватывает путь от черновика до полного погашения, закрытые вложения, задачи по ролям и аудит.
 
@@ -53,7 +53,7 @@ python -m flask --app vaim run --port 5001
 
 ## Подготовка облака
 
-Пошаговая настройка нового проекта описана в [инструкции Supabase и Render Free](docs/DEPLOYMENT.md). Запуск в Render использует PostgreSQL по TLS и закрытый bucket. Миграции и первый администратор создаются отдельно до запуска сервиса. Команды `python -m flask --app vaim verify-db` и `python -m flask --app vaim verify-storage` проверяют настройки по локальному окружению.
+Пошаговая настройка нового проекта описана в [инструкции Supabase и Render Free](docs/DEPLOYMENT.md). Запуск в Render использует PostgreSQL по TLS, закрытый bucket `documents` и серверный ключ Supabase `sb_secret_` в переменной `SUPABASE_SECRET_KEY`. Миграции и первый администратор создаются отдельно до запуска сервиса. Команды `python -m flask --app vaim verify-db` и `python -m flask --app vaim verify-storage` проверяют настройки по локальному окружению.
 
 ## Документация
 
