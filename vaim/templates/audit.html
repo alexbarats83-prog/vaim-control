@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import timeline with context %}
+{% block title %}Журнал действий{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="breadcrumb-label">Администрирование</p><h1>Журнал действий</h1></div></div>
+<section class="panel form-panel">{{ timeline(page.items) }}
+{% if page.pages > 1 %}<div class="pagination-row">
+{% if page.has_prev %}<a href="{{ url_for('admin.audit', page=page.prev_num) }}">← Назад</a>{% endif %}<span>Страница {{ page.page }} из {{ page.pages }}</span>{% if page.has_next %}<a href="{{ url_for('admin.audit', page=page.next_num) }}">Далее →</a>{% endif %}</div>{% endif %}
+</section>
+{% endblock %}

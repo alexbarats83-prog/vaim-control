@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import csrf, badge, timeline with context %}
+{% block title %}Счёт № {{ item.number }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><a class="breadcrumb-label" href="{{ url_for('invoices.listing') }}">← Реестр счетов</a><h1>Счёт № {{ item.number }}</h1><div class="tag-row">{{ badge(item) }}<span class="muted">ВС-{{ '%05d' | format(item.id) }}</span></div></div>
+  {% if editable %}<a class="btn btn-outline-secondary" href="{{ url_for('invoices.edit', invoice_id=item.id) }}">Редактировать</a>{% endif %}
+</div>
+<div class="detail-grid">
+  <div class="detail-column">
+    <section class="panel form-panel">
+      <header class="detail-head"><h2>Реквизиты счёта</h2><strong class="amount-display">{{ item.amount | money }} {{ item.currency }}</strong></header>
+      <dl class="detail-fields">
+        {% for label, value in [('Дата счёта', item.invoice_date.strftime('%d.%m.%Y')),('Срок оплаты', item.due_date.strftime('%d.%m.%Y')),('Юридическое лицо', item.entity),('Подразделение', item.department),('Контрагент', item.counterparty.name),('ИНН / КПП', item.counterparty.inn ~ ' / ' ~ (item.counterparty.kpp or '—')),('НДС', (item.vat | money) ~ ' ' ~ item.currency),('Статья расходов', item.expense),('Инициатор', item.initiator.name),('Текущий ответственный', responsible(item)),('Приоритет', priorities[item.priority])] %}
+        <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}
+        <div class="wide"><dt>Назначение платежа</dt><dd class="preserve">{{ item.purpose }}</dd></div>
+      </dl>
+    </section>
+    <section class="panel form-panel"><h2>Документы</h2>
+      {% if documents %}<ul class="document-list">{% for doc in documents %}<li><a href="{{ url_for('invoices.download', invoice_id=item.id, document_id=doc.id) }}">{{ doc.name }}</a><small>{{ ((doc.size + 1023) // 1024) }} КБ{% if doc.payment_id %} · Оплата{% endif %}</small></li>{% endfor %}</ul>{% else %}<p class="muted">Документы пока не прикреплены.</p>{% endif %}
+      {% if editable %}<form class="field-grid" method="post" enctype="multipart/form-data" action="{{ url_for('invoices.upload', invoice_id=item.id) }}">{{ csrf(item) }}<label>Файл PDF, XLSX, JPG или PNG до 10 МБ<input class="form-control" type="file" name="document" accept=".pdf,.xlsx,.jpg,.png" required></label><div><button class="btn btn-outline-secondary">Прикрепить</button></div></form>{% endif %}
+    </section>
+    <section class="panel form-panel"><h2>История оплаты</h2>
+      <p><strong>{{ item.paid | money }} {{ item.currency }}</strong> оплачено · {{ (item.amount - item.paid) | money }} {{ item.currency }} к оплате</p>
+      {% if payments %}<div class="table-responsive"><table class="table records"><thead><tr><th>Дата</th><th>Поручение</th><th>Сумма</th><th>Бухгалтер</th></tr></thead><tbody>{% for payment in payments %}<tr><td>{{ payment.date.strftime('%d.%m.%Y') }}</td><td>{{ payment.order_number }}</td><td>{{ payment.amount | money }} {{ item.currency }}</td><td>{{ payment.actor.name }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+      {% if payable %}<form class="field-grid two" method="post" enctype="multipart/form-data" action="{{ url_for('invoices.pay', invoice_id=item.id) }}">
+        {{ csrf(item) }}<input type="hidden" name="request_id" value="{{ payment_token }}">
+        <label>Дата оплаты<input class="form-control" type="date" name="date" value="{{ today }}" max="{{ today }}" required></label>
+        <label>Сумма<input class="form-control" name="amount" inputmode="decimal" maxlength="15" required></label>
+        <label>Номер платёжного поручения<input class="form-control" name="order_number" maxlength="80" required></label>
+        <label>Подтверждение оплаты<input class="form-control" type="file" name="document" accept=".pdf,.xlsx,.jpg,.png"></label>
+        <div class="wide"><button class="btn btn-primary">Зарегистрировать оплату</button></div>
+      </form>{% endif %}
+    </section>
+  </div>
+  <div class="detail-column">
+    <section class="panel form-panel"><h2>Согласование</h2>
+      {% if item.run %}
+        <p class="muted">{{ item.run.route_name }} · v{{ item.run.route_revision }} · Цикл {{ item.run.number }}</p>
+        <ol class="steps">{% for step in item.run.steps %}<li class="{{ 'done' if loop.index0 < item.current_step else 'current' if loop.index0 == item.current_step and item.status == 'review' }}"><div><strong>{{ step.name or ('Этап ' ~ loop.index) }}</strong><small>{{ roles[step.role][0] if step.role else step.assignee }}</small></div></li>{% endfor %}</ol>
+      {% else %}<p class="muted">{{ item.route.name }} · v{{ item.route.revision }}</p>{% endif %}
+      {% if editable or approvable %}
+      <form class="field-grid" method="post" action="{{ url_for('invoices.action', invoice_id=item.id) }}">{{ csrf(item) }}
+        {% if approvable %}<label>Комментарий<textarea class="form-control" name="comment" rows="2" maxlength="2000" placeholder="Обязателен при возврате или отклонении"></textarea></label>{% endif %}
+        <div class="form-actions">
+        {% if editable %}<button class="btn btn-primary" name="action" value="submit">{{ 'Повторно отправить' if item.status == 'returned' else 'На согласование' }}</button><button class="btn btn-outline-danger" name="action" value="cancel">Отменить счёт</button>{% endif %}
+        {% if approvable %}<button class="btn btn-primary" name="action" value="approve">Согласовать</button><button class="btn btn-outline-secondary" name="action" value="return">На доработку</button><button class="btn btn-outline-danger" name="action" value="reject">Отклонить</button>{% endif %}
+        </div>
+      </form>{% endif %}
+    </section>
+    <section class="panel form-panel"><h2>История и комментарии</h2>
+      {% if can('comment') %}<form class="field-grid comment-form" method="post" action="{{ url_for('invoices.action', invoice_id=item.id) }}">{{ csrf(item) }}
+        <label>Комментарий<textarea class="form-control" name="comment" maxlength="2000" rows="2" required></textarea></label>
+        <div><button class="btn btn-outline-secondary" name="action" value="comment">Добавить комментарий</button></div>
+      </form>{% endif %}
+      {{ timeline(history) }}
+    </section>
+  </div>
+</div>
+{% endblock %}

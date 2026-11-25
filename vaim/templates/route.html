@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import csrf %}
+{% set heading = 'Редактировать маршрут' if item else 'Добавить маршрут' %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><a class="breadcrumb-label" href="{{ url_for('admin.routes') }}">← Маршруты согласования</a><h1>{{ heading }}</h1><p class="muted">Счёт проходит этапы в порядке, заданном здесь.</p></div></div>
+{% macro row(name='', target='', self_approval=false) %}
+<div class="route-row">
+  <label>Название этапа<input class="form-control" name="step_name" value="{{ name }}" maxlength="100" required></label>
+  <label>Исполнитель<select class="form-select" name="step_target" required>
+    <option value="">Выберите роль или сотрудника</option>
+    <optgroup label="Роли">{% for key, role in roles.items() if 'approve' in role[1] %}{% set value = 'role:' ~ key %}<option value="{{ value }}" {{ 'selected' if target == value }}>{{ role[0] }}</option>{% endfor %}</optgroup>
+    <optgroup label="Сотрудники">{% for member in members if member.active or target == 'user:' ~ member.id %}{% set value = 'user:' ~ member.id %}<option value="{{ value }}" {{ 'selected' if target == value }}>{{ member.name }} · {{ member.department }}{{ ' (заблокирован)' if not member.active }}</option>{% endfor %}</optgroup>
+  </select></label>
+  <label>Согласование своего счёта<select class="form-select" name="step_self_approval"><option value="0">Запрещено</option><option value="1" {{ 'selected' if self_approval }}>Разрешено</option></select></label>
+  <div class="route-buttons"><button type="button" class="btn btn-outline-secondary" data-move="up" aria-label="Переместить этап выше">↑</button><button type="button" class="btn btn-outline-secondary" data-move="down" aria-label="Переместить этап ниже">↓</button><button type="button" class="btn btn-outline-danger" data-move="remove" aria-label="Удалить этап">×</button></div>
+</div>
+{% endmacro %}
+<form class="panel form-panel" method="post" data-route-editor>
+  {{ csrf(item) }}
+  <div class="field-grid">
+    <label>Название<input class="form-control" name="name" value="{{ request.form.get('name', item.name if item else '') }}" maxlength="120" required></label>
+    <label class="check-item"><input type="checkbox" class="form-check-input" name="active" {{ 'checked' if (request.form.get('active') if request.method == 'POST' else (not item or item.active)) }}>Доступен для новых согласований</label>
+  </div>
+  <h2 class="subheading">Этапы</h2>
+  <div data-steps>
+    {% if request.method == 'POST' %}{% set targets = request.form.getlist('step_target') %}{% set choices = request.form.getlist('step_self_approval') %}{% for name in request.form.getlist('step_name') %}{{ row(name, targets[loop.index0], choices[loop.index0] == "1") }}{% else %}{{ row() }}{% endfor %}
+    {% elif item %}{% for step in item.steps %}{{ row(step.name or roles[step.role][0] if step.role else step.name or step.assignee, 'role:' ~ step.role if step.role else 'user:' ~ step.user, step.allow_self_approval) }}{% endfor %}
+    {% else %}{{ row() }}{% endif %}
+  </div>
+  <template data-step-template>{{ row() }}</template>
+  <button type="button" class="btn btn-outline-secondary" data-add-step>＋ Добавить этап</button>
+  <div class="form-actions"><button class="btn btn-primary">Сохранить маршрут</button><a class="btn btn-outline-secondary" href="{{ url_for('admin.routes') }}">Отмена</a></div>
+</form>
+{% endblock %}

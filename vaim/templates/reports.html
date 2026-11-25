@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import period, totals with context %}
+{% block title %}Отчёты{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="breadcrumb-label">Счета и платежи</p><h1>Отчёты</h1><p class="muted">Текущие остатки и платежи за выбранный период</p></div></div>
+{{ period(start, end) }}
+<section class="panel section"><header class="section-heading"><h2>Суммы по валютам</h2><small class="muted">Полностью оплачено счетов за период: {{ summary.paid }}</small></header>{{ totals(groups) }}</section>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import csrf %}
+{% set heading = 'Редактировать счёт' if item else 'Создать счёт' %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><a class="breadcrumb-label" href="{{ url_for('invoices.listing') }}">← Реестр счетов</a><h1>{{ heading }}</h1><p class="muted">Основные реквизиты и маршрут согласования</p></div></div>
+{% macro field(name, label, current='', type='text', max=120, required=true) %}
+<label>{{ label }}<input class="form-control" name="{{ name }}" type="{{ type }}" maxlength="{{ max }}" value="{{ request.form.get(name, current) }}" {{ 'required' if required }} {% if name in ('amount','vat') %}inputmode="decimal"{% endif %}></label>
+{% endmacro %}
+{% if not counterparties or not routes %}<div class="alert alert-warning">Для создания счёта нужны контрагент и активный маршрут согласования. {% if not counterparties and can('directory') %}<a href="{{ url_for('admin.counterparties') }}">Добавить контрагента</a>.{% endif %} {% if not routes and can('manage') %}<a href="{{ url_for('admin.routes') }}">Настроить маршрут</a>.{% endif %}</div>{% endif %}
+<form class="panel form-panel" method="post">
+  {{ csrf(item) }}
+  <h2>Реквизиты</h2>
+  <div class="field-grid two">
+    {{ field('number', 'Номер счёта', item.number if item else '', max=80) }}
+    {{ field('invoice_date', 'Дата счёта', item.invoice_date if item else today, type='date') }}
+    {{ field('entity', 'Юридическое лицо', item.entity if item else '', max=160) }}
+    <label>Подразделение<input class="form-control" value="{{ item.department if item else user.department }}" readonly></label>
+    <label>Контрагент<select class="form-select" name="counterparty_id" required><option value="">Выберите контрагента</option>{% for partner in counterparties %}<option value="{{ partner.id }}" {{ 'selected' if (request.form.get('counterparty_id', item.counterparty_id if item else '') | string) == (partner.id | string) }}>{{ partner.name }} · {{ partner.inn }}</option>{% endfor %}</select></label>
+    {{ field('expense', 'Статья расходов', item.expense if item else '') }}
+    {{ field('amount', 'Сумма', '%d.%02d'|format(item.amount // 100, item.amount % 100) if item else '', max=15) }}
+    <label>Валюта<select class="form-select" name="currency">{% for currency in currencies %}<option {{ 'selected' if request.form.get('currency', item.currency if item else 'RUB') == currency }}>{{ currency }}</option>{% endfor %}</select></label>
+    {{ field('vat', 'НДС в валюте счёта', '%d.%02d'|format(item.vat // 100, item.vat % 100) if item else '0', max=15, required=false) }}
+    {{ field('due_date', 'Срок оплаты', item.due_date if item else '', type='date') }}
+    <label>Приоритет<select class="form-select" name="priority">{% for key, label in priorities.items() %}<option value="{{ key }}" {{ 'selected' if request.form.get('priority', item.priority if item else 'normal') == key }}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Маршрут согласования<select class="form-select" name="route_id" required><option value="">Выберите маршрут</option>{% for route in routes %}<option value="{{ route.id }}" {{ 'selected' if (request.form.get('route_id', item.route_id if item else '') | string) == (route.id | string) }}>{{ route.name }} · v{{ route.revision }}</option>{% endfor %}</select></label>
+    <label class="wide">Назначение платежа<textarea class="form-control" name="purpose" maxlength="2000" rows="3" required>{{ request.form.get('purpose', item.purpose if item else '') }}</textarea></label>
+  </div>
+  <div class="form-actions"><button type="submit" class="btn btn-primary" {{ 'disabled' if not counterparties or not routes }}>Сохранить счёт</button><a class="btn btn-outline-secondary" href="{{ url_for('invoices.detail', invoice_id=item.id) if item else url_for('invoices.listing') }}">Отмена</a></div>
+</form>
+{% endblock %}

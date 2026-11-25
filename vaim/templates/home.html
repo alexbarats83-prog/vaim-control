@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import period, invoice_table, totals, timeline with context %}
+{% block content %}
+<div class="page-heading">
+  <div><p class="breadcrumb-label">Рабочее пространство</p><h1>Главная</h1><p class="muted">Состояние счетов, платежей и задач</p></div>
+  {% if can('create') %}<a class="btn btn-primary" href="{{ url_for('invoices.edit') }}"><span aria-hidden="true">＋</span> Создать счёт</a>{% endif %}
+</div>
+{{ period(start, end) }}
+<div class="metric-grid">
+  {% for key, label, icon, color in [('review','На согласовании','◷','blue'),('awaiting','Ожидают оплаты','₽','amber'),('paid','Оплачены за период','✓','green'),('overdue','Просрочены','!','red')] %}
+  <section class="panel metric"><span class="metric-icon {{ color }}" aria-hidden="true">{{ icon }}</span><span>{{ label }}</span><strong>{{ summary[key] }}</strong><small>{{ summary[key] | invoice_unit }}</small></section>
+  {% endfor %}
+</div>
+<section class="panel section"><header class="section-heading"><h2>Суммы по валютам</h2></header>{{ totals(groups) }}</section>
+<div class="dashboard-grid">
+  <section class="panel section"><header class="section-heading"><h2>Мои задачи</h2><a href="{{ url_for('dashboard.tasks') }}">Все задачи →</a></header>{{ invoice_table(tasks, 'Нет задач по счетам') }}</section>
+  <section class="panel section"><header class="section-heading"><h2>Последние действия</h2></header>{{ timeline(recent) }}</section>
+</div>
+{% endblock %}

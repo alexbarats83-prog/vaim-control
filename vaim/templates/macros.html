@@ -1,0 +1,55 @@
+{% macro csrf(item=None) %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% if item %}<input type="hidden" name="revision" value="{{ item.revision }}">{% endif %}
+{% endmacro %}
+{% macro badge(item) %}
+<span class="status status-{{ item.status }}">{{ statuses[item.status] }}</span>
+{% if item.due_date < today and item.status not in ('paid','rejected','cancelled') %}<span class="status status-overdue">Просрочен</span>{% endif %}
+{% endmacro %}
+{% macro invoice_table(items, empty_label='Счета не найдены') %}
+{% if items %}
+<div class="table-responsive">
+<table class="table records">
+  <thead><tr><th scope="col">Счёт</th><th scope="col">Контрагент</th><th scope="col">Сумма</th><th scope="col">Срок оплаты</th><th scope="col">Статус</th><th scope="col">Ответственный</th></tr></thead>
+  <tbody>{% for item in items %}
+  <tr><td><a class="record-link" href="{{ url_for('invoices.detail', invoice_id=item.id) }}">№ {{ item.number }}</a><small>ВС-{{ '%05d'|format(item.id) }}</small></td><td>{{ item.counterparty.name }}<small>{{ item.department }}</small></td><td class="money">{{ item.amount | money }} {{ item.currency }}</td><td>{{ item.due_date.strftime('%d.%m.%Y') }}</td><td>{{ badge(item) }}</td><td>{{ responsible(item) }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+</div>
+{% else %}
+<div class="empty"><span aria-hidden="true">▤</span><strong>{{ empty_label }}</strong></div>
+{% endif %}
+{% endmacro %}
+{% macro period(start, end) %}
+<form method="get" class="period">
+  <label><span>Начало периода</span><input class="form-control" type="date" name="start" value="{{ start.isoformat() }}" required></label>
+  <label><span>Конец периода</span><input class="form-control" type="date" name="end" value="{{ end.isoformat() }}" required></label>
+  <button class="btn btn-outline-secondary" type="submit">Применить</button>
+</form>
+{% endmacro %}
+{% macro totals(groups) %}
+{% if groups %}
+<div class="table-responsive"><table class="table records">
+<thead><tr><th scope="col">Валюта</th><th scope="col">На согласовании</th><th scope="col">Остаток к оплате</th><th scope="col">Платежи за период</th></tr></thead>
+<tbody>{% for currency, group in groups.items() %}<tr><th scope="row">{{ currency }}</th><td>{{ group.review|money }}</td><td>{{ group.awaiting|money }}</td><td>{{ group.payments|money }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% else %}<div class="empty"><span aria-hidden="true">◫</span><strong>Нет данных по счетам</strong></div>{% endif %}
+{% endmacro %}
+{% macro timeline(events) %}
+{% if events %}
+<ul class="timeline">{% for event in events %}
+<li><div><strong>{{ actions.get(event.action, event.action) }}</strong>
+{% if event.invoice_id %}<a href="{{ url_for('invoices.detail', invoice_id=event.invoice_id) }}">ВС-{{ '%05d'|format(event.invoice_id) }}</a>{% endif %}
+<small>{{ event.actor.name if event.actor else 'Система' }} · {{ event.created_at | local_time }}</small>
+{% if event.detail.comment %}<p class="preserve">{{ event.detail.comment }}</p>{% endif %}
+{% if event.detail.initiator_action %}<small>Действие инициатора по разрешению этапа</small>{% endif %}
+{% if event.detail.step %}<small>Этап {{ event.detail.step }} · Цикл {{ event.detail.round }}</small>{% endif %}
+{% if event.detail.route and event.detail.version %}<small>Маршрут {{ event.detail.route }} · Версия {{ event.detail.version }}</small>{% endif %}
+{% if event.detail.file %}<small>{{ event.detail.file }}</small>{% endif %}
+{% if event.detail.order %}<small>Поручение № {{ event.detail.order }}</small>{% endif %}
+{% if event.detail.employee %}<small>Сотрудник № {{ event.detail.employee }} · {{ 'Активен' if event.detail.enabled else 'Заблокирован' }}</small>{% endif %}
+{% if event.detail.counterparty %}<small>Контрагент № {{ event.detail.counterparty }}</small>{% endif %}
+</div></li>
+{% endfor %}</ul>
+{% else %}<div class="empty"><span aria-hidden="true">◷</span><strong>Событий пока нет</strong></div>{% endif %}
+{% endmacro %}

@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import invoice_table with context %}
+{% block title %}Мои задачи{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="breadcrumb-label">Рабочее пространство</p><h1>Мои задачи</h1><p class="muted">Счета, по которым требуется ваше действие</p></div></div>
+<section class="panel section">{{ invoice_table(items) }}</section>
+{% endblock %}

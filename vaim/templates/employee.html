@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% from 'macros.html' import csrf %}
+{% set heading = 'Редактировать сотрудника' if member else 'Добавить сотрудника' %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><a class="breadcrumb-label" href="{{ url_for('admin.employees') }}">← Сотрудники</a><h1>{{ heading }}</h1></div></div>
+<form method="post" class="panel form-panel">
+{{ csrf() }}
+{% if member %}<input type="hidden" name="revision" value="{{ member.session_version }}">{% endif %}
+<div class="field-grid two">
+  <label>Имя<input class="form-control" name="name" value="{{ request.form.get('name', member.name if member else '') }}" maxlength="120" required></label>
+  <label>Подразделение<input class="form-control" name="department" value="{{ request.form.get('department', member.department if member else '') }}" maxlength="120" required></label>
+  <label>Рабочий email<input class="form-control" type="email" name="email" value="{{ request.form.get('email', member.email if member else '') }}" maxlength="254" required></label>
+  <label>{{ 'Новый пароль (необязательно)' if member else 'Пароль' }}<input class="form-control" type="password" name="password" minlength="12" maxlength="128" autocomplete="new-password" {{ 'required' if not member }}></label>
+  <fieldset class="wide"><legend>Роли</legend><div class="check-grid">
+  {% set selected = request.form.getlist('roles') if request.method == 'POST' else (member.role_ids if member else []) %}
+  {% for key, role in roles.items() %}<label class="check-item"><input class="form-check-input" type="checkbox" name="roles" value="{{ key }}" {{ 'checked' if key in selected }}>{{ role[0] }}</label>{% endfor %}
+  </div></fieldset>
+  <label class="check-item wide"><input class="form-check-input" type="checkbox" name="active" {{ 'checked' if (request.form.get('active') if request.method == 'POST' else (not member or member.active)) }}>Учётная запись активна</label>
+</div>
+<div class="form-actions"><button class="btn btn-primary">Сохранить</button><a class="btn btn-outline-secondary" href="{{ url_for('admin.employees') }}">Отмена</a></div>
+</form>
+{% endblock %}
